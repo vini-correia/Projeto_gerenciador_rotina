@@ -38,18 +38,25 @@ class _WorkoutsPageState extends State<WorkoutsPage> {
     _userId = _authService.currentUser!.id;
   }
 
-  void _showAddExerciseDialog(String muscleGroup) {
-    _nameController.clear();
-    _setsController.text = '3';
-    _repsController.text = '10 a 12';
-    _weightController.text = '77kg';
+  void _showAddExerciseDialog(String muscleGroup, [Exercise? exToEdit]) {
+    if (exToEdit != null) {
+      _nameController.text = exToEdit.name;
+      _setsController.text = exToEdit.sets.toString();
+      _repsController.text = exToEdit.reps;
+      _weightController.text = exToEdit.weight;
+    } else {
+      _nameController.clear();
+      _setsController.text = '3';
+      _repsController.text = '10 a 12';
+      _weightController.text = '';
+    }
 
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Text('Novo Exercício: $muscleGroup'),
+          title: Text(exToEdit == null ? 'Novo Exercício: $muscleGroup' : 'Editar Exercício'),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -93,7 +100,7 @@ class _WorkoutsPageState extends State<WorkoutsPage> {
               onPressed: () async {
                 if (_nameController.text.trim().isNotEmpty && _setsController.text.trim().isNotEmpty) {
                   final exercise = Exercise(
-                    id: '',
+                    id: exToEdit?.id ?? '',
                     userId: _userId,
                     muscleGroup: muscleGroup,
                     name: _nameController.text.trim(),
@@ -101,7 +108,13 @@ class _WorkoutsPageState extends State<WorkoutsPage> {
                     reps: _repsController.text.trim(),
                     weight: _weightController.text.trim(),
                   );
-                  await _dbService.addExercise(exercise);
+
+                  if (exToEdit == null) {
+                    await _dbService.addExercise(exercise);
+                  } else {
+                    await _dbService.updateExercise(exercise);
+                  }
+
                   if (mounted) {
                     Navigator.pop(context);
                     setState(() {});
@@ -111,7 +124,7 @@ class _WorkoutsPageState extends State<WorkoutsPage> {
               style: ElevatedButton.styleFrom(
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              child: const Text('Adicionar'),
+              child: Text(exToEdit == null ? 'Adicionar' : 'Atualizar'),
             ),
           ],
         );
@@ -216,12 +229,21 @@ class _WorkoutsPageState extends State<WorkoutsPage> {
                           return ListTile(
                             title: Text(ex.name, style: const TextStyle(fontWeight: FontWeight.w600)),
                             subtitle: Text('${ex.sets} séries x ${ex.reps} | Carga: ${ex.weight}'),
-                            trailing: IconButton(
-                              icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
-                              onPressed: () async {
-                                await _dbService.deleteExercise(ex.id);
-                                setState(() {});
-                              },
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.edit_outlined, color: Colors.blue, size: 20),
+                                  onPressed: () => _showAddExerciseDialog(groupName, ex),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                                  onPressed: () async {
+                                    await _dbService.deleteExercise(ex.id);
+                                    setState(() {});
+                                  },
+                                ),
+                              ],
                             ),
                           );
                         },

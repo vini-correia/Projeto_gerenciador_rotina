@@ -37,6 +37,10 @@ class DatabaseService {
     await _supabase.from('transactions').insert(transaction.toJson());
   }
 
+  Future<void> updateTransaction(FinanceTransaction transaction) async {
+    await _supabase.from('transactions').update(transaction.toJson()).eq('id', transaction.id);
+  }
+
   Future<void> deleteTransaction(String id) async {
     await _supabase.from('transactions').delete().eq('id', id);
   }
@@ -50,6 +54,10 @@ class DatabaseService {
     await _supabase.from('exercises').insert(exercise.toJson());
   }
 
+  Future<void> updateExercise(Exercise exercise) async {
+    await _supabase.from('exercises').update(exercise.toJson()).eq('id', exercise.id);
+  }
+
   Future<void> deleteExercise(String id) async {
     await _supabase.from('exercises').delete().eq('id', id);
   }
@@ -61,6 +69,10 @@ class DatabaseService {
 
   Future<void> addStudy(Study study) async {
     await _supabase.from('studies').insert(study.toJson());
+  }
+
+  Future<void> updateStudy(Study study) async {
+    await _supabase.from('studies').update(study.toJson()).eq('id', study.id);
   }
 
   Future<void> updateStudyProgress(String id, int progress) async {

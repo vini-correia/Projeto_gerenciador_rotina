@@ -34,10 +34,16 @@ class _StudiesPageState extends State<StudiesPage> {
     _userId = _authService.currentUser!.id;
   }
 
-  void _showAddStudyDialog() {
-    _titleController.clear();
-    _descController.clear();
-    _selectedCategory = 'Programação';
+  void _showAddStudyDialog([Study? studyToEdit]) {
+    if (studyToEdit != null) {
+      _titleController.text = studyToEdit.title;
+      _descController.text = studyToEdit.description;
+      _selectedCategory = studyToEdit.category;
+    } else {
+      _titleController.clear();
+      _descController.clear();
+      _selectedCategory = 'Programação';
+    }
 
     showDialog(
       context: context,
@@ -46,7 +52,7 @@ class _StudiesPageState extends State<StudiesPage> {
             builder: (context, setDialogState) {
               return AlertDialog(
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                title: const Text('Novo Objetivo de Estudo'),
+                title: Text(studyToEdit == null ? 'Novo Objetivo de Estudo' : 'Editar Estudo'),
                 content: SingleChildScrollView(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -77,14 +83,20 @@ class _StudiesPageState extends State<StudiesPage> {
                     onPressed: () async {
                       if (_titleController.text.trim().isNotEmpty) {
                         final study = Study(
-                          id: '',
+                          id: studyToEdit?.id ?? '',
                           userId: _userId,
                           title: _titleController.text.trim(),
                           description: _descController.text.trim(),
                           category: _selectedCategory,
-                          progress: 0,
+                          progress: studyToEdit?.progress ?? 0,
                         );
-                        await _dbService.addStudy(study);
+
+                        if (studyToEdit == null) {
+                          await _dbService.addStudy(study);
+                        } else {
+                          await _dbService.updateStudy(study);
+                        }
+
                         if (mounted) {
                           Navigator.pop(context);
                           setState(() {});
@@ -94,7 +106,7 @@ class _StudiesPageState extends State<StudiesPage> {
                     style: ElevatedButton.styleFrom(
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
-                    child: const Text('Adicionar'),
+                    child: Text(studyToEdit == null ? 'Adicionar' : 'Atualizar'),
                   ),
                 ],
               );
@@ -185,35 +197,48 @@ class _StudiesPageState extends State<StudiesPage> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Row(
-                            children: [
-                              CircleAvatar(
-                                backgroundColor: catColor.withOpacity(0.1),
-                                child: Icon(_getCategoryIcon(study.category), color: catColor, size: 20),
-                              ),
-                              const SizedBox(width: 12),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    study.title,
-                                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          Expanded(
+                            child: Row(
+                              children: [
+                                CircleAvatar(
+                                  backgroundColor: catColor.withOpacity(0.1),
+                                  child: Icon(_getCategoryIcon(study.category), color: catColor, size: 20),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        study.title,
+                                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                      ),
+                                      if (study.description.isNotEmpty)
+                                        Text(
+                                          study.description,
+                                          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                                        ),
+                                    ],
                                   ),
-                                  if (study.description.isNotEmpty)
-                                    Text(
-                                      study.description,
-                                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                                    ),
-                                ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.edit_outlined, color: Colors.blue),
+                                onPressed: () => _showAddStudyDialog(study),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.delete_outline, color: Colors.red),
+                                onPressed: () async {
+                                  await _dbService.deleteStudy(study.id);
+                                  setState(() {});
+                                },
                               ),
                             ],
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.delete_outline, color: Colors.red),
-                            onPressed: () async {
-                              await _dbService.deleteStudy(study.id);
-                              setState(() {});
-                            },
                           ),
                         ],
                       ),
@@ -256,7 +281,7 @@ class _StudiesPageState extends State<StudiesPage> {
         },
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showAddStudyDialog,
+        onPressed: () => _showAddStudyDialog(),
         icon: const Icon(Icons.add),
         label: const Text('Adicionar'),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),

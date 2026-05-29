@@ -33,11 +33,18 @@ class _FinancesPageState extends State<FinancesPage> {
     return "${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}";
   }
 
-  void _showTransactionDialog() {
-    _titleController.clear();
-    _amountController.clear();
-    _selectedType = 'Receita';
-    _selectedDate = DateTime.now();
+  void _showTransactionDialog([FinanceTransaction? txToEdit]) {
+    if (txToEdit != null) {
+      _titleController.text = txToEdit.title;
+      _amountController.text = txToEdit.amount.abs().toStringAsFixed(2);
+      _selectedType = txToEdit.type;
+      _selectedDate = txToEdit.date;
+    } else {
+      _titleController.clear();
+      _amountController.clear();
+      _selectedType = 'Receita';
+      _selectedDate = DateTime.now();
+    }
 
     showDialog(
       context: context,
@@ -46,7 +53,7 @@ class _FinancesPageState extends State<FinancesPage> {
             builder: (context, setDialogState) {
               return AlertDialog(
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                title: const Text('Nova Movimentação'),
+                title: Text(txToEdit == null ? 'Nova Movimentação' : 'Editar Movimentação'),
                 content: SingleChildScrollView(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -107,14 +114,20 @@ class _FinancesPageState extends State<FinancesPage> {
                           }
 
                           final transaction = FinanceTransaction(
-                            id: '',
+                            id: txToEdit?.id ?? '',
                             userId: _userId,
                             title: _titleController.text.trim(),
                             amount: parsedAmount,
                             type: _selectedType,
                             date: _selectedDate!,
                           );
-                          await _dbService.addTransaction(transaction);
+
+                          if (txToEdit == null) {
+                            await _dbService.addTransaction(transaction);
+                          } else {
+                            await _dbService.updateTransaction(transaction);
+                          }
+
                           if (mounted) {
                             Navigator.pop(context);
                             setState(() {});
@@ -125,7 +138,7 @@ class _FinancesPageState extends State<FinancesPage> {
                     style: ElevatedButton.styleFrom(
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
-                    child: const Text('Salvar'),
+                    child: Text(txToEdit == null ? 'Salvar' : 'Atualizar'),
                   ),
                 ],
               );
@@ -327,6 +340,10 @@ class _FinancesPageState extends State<FinancesPage> {
                                 ),
                               ),
                               IconButton(
+                                icon: const Icon(Icons.edit_outlined, color: Colors.blue, size: 20),
+                                onPressed: () => _showTransactionDialog(tx),
+                              ),
+                              IconButton(
                                 icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
                                 onPressed: () async {
                                   await _dbService.deleteTransaction(tx.id);
@@ -346,7 +363,7 @@ class _FinancesPageState extends State<FinancesPage> {
         },
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _showTransactionDialog,
+        onPressed: () => _showTransactionDialog(),
         backgroundColor: Theme.of(context).colorScheme.primary,
         child: const Icon(Icons.add, color: Colors.white),
       ),
