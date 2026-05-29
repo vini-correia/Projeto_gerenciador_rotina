@@ -19,6 +19,7 @@ class _StudiesPageState extends State<StudiesPage> {
 
   late String _userId;
   String _selectedCategory = 'Programação';
+  DateTime? _selectedDate;
 
   final List<String> _categories = [
     'Faculdade',
@@ -34,15 +35,21 @@ class _StudiesPageState extends State<StudiesPage> {
     _userId = _authService.currentUser!.id;
   }
 
+  String _formatDate(DateTime date) {
+    return "${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}";
+  }
+
   void _showAddStudyDialog([Study? studyToEdit]) {
     if (studyToEdit != null) {
       _titleController.text = studyToEdit.title;
       _descController.text = studyToEdit.description;
       _selectedCategory = studyToEdit.category;
+      _selectedDate = studyToEdit.estimatedCompletion;
     } else {
       _titleController.clear();
       _descController.clear();
       _selectedCategory = 'Programação';
+      _selectedDate = null;
     }
 
     showDialog(
@@ -52,14 +59,14 @@ class _StudiesPageState extends State<StudiesPage> {
             builder: (context, setDialogState) {
               return AlertDialog(
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                title: Text(studyToEdit == null ? 'Novo Objetivo de Estudo' : 'Editar Estudo'),
+                title: Text(studyToEdit == null ? 'Novo Objetivo' : 'Editar Objetivo'),
                 content: SingleChildScrollView(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       CustomTextField(controller: _titleController, label: 'Nome do Curso/Projeto'),
-                      CustomTextField(controller: _descController, label: 'Descrição (Ex: Módulo 1)'),
+                      CustomTextField(controller: _descController, label: 'Descrição (Opcional)'),
                       const SizedBox(height: 8),
                       DropdownButtonFormField<String>(
                         value: _selectedCategory,
@@ -73,6 +80,26 @@ class _StudiesPageState extends State<StudiesPage> {
                         onChanged: (value) {
                           if (value != null) setDialogState(() => _selectedCategory = value);
                         },
+                      ),
+                      const SizedBox(height: 16),
+                      OutlinedButton.icon(
+                        onPressed: () async {
+                          final pickedDate = await showDatePicker(
+                            context: context,
+                            initialDate: _selectedDate ?? DateTime.now(),
+                            firstDate: DateTime.now(),
+                            lastDate: DateTime(2100),
+                          );
+                          if (pickedDate != null) setDialogState(() => _selectedDate = pickedDate);
+                        },
+                        icon: const Icon(Icons.calendar_month),
+                        label: Text(_selectedDate == null
+                            ? 'Conclusão Estimada'
+                            : 'Data: ${_formatDate(_selectedDate!)}'),
+                        style: OutlinedButton.styleFrom(
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
                       ),
                     ],
                   ),
@@ -89,6 +116,7 @@ class _StudiesPageState extends State<StudiesPage> {
                           description: _descController.text.trim(),
                           category: _selectedCategory,
                           progress: studyToEdit?.progress ?? 0,
+                          estimatedCompletion: _selectedDate,
                         );
 
                         if (studyToEdit == null) {
@@ -103,9 +131,6 @@ class _StudiesPageState extends State<StudiesPage> {
                         }
                       }
                     },
-                    style: ElevatedButton.styleFrom(
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
                     child: Text(studyToEdit == null ? 'Adicionar' : 'Atualizar'),
                   ),
                 ],
@@ -153,26 +178,9 @@ class _StudiesPageState extends State<StudiesPage> {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
-          if (snapshot.hasError) {
-            return const Center(child: Text('Erro ao carregar estudos.'));
-          }
-
           final studies = snapshot.data ?? [];
-
           if (studies.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.menu_book, size: 80, color: Colors.grey[400]),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Nenhum curso ou projeto cadastrado.',
-                    style: TextStyle(fontSize: 16, color: Colors.grey[600]),
-                  ),
-                ],
-              ),
-            );
+            return const Center(child: Text('Nenhum objetivo cadastrado.'));
           }
 
           return ListView.builder(
@@ -209,15 +217,9 @@ class _StudiesPageState extends State<StudiesPage> {
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Text(
-                                        study.title,
-                                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                                      ),
+                                      Text(study.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                                       if (study.description.isNotEmpty)
-                                        Text(
-                                          study.description,
-                                          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                                        ),
+                                        Text(study.description, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
                                     ],
                                   ),
                                 ),
@@ -225,7 +227,6 @@ class _StudiesPageState extends State<StudiesPage> {
                             ),
                           ),
                           Row(
-                            mainAxisSize: MainAxisSize.min,
                             children: [
                               IconButton(
                                 icon: const Icon(Icons.edit_outlined, color: Colors.blue),
@@ -239,10 +240,30 @@ class _StudiesPageState extends State<StudiesPage> {
                                 },
                               ),
                             ],
-                          ),
+                          )
                         ],
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 12),
+                      if (study.estimatedCompletion != null)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.amber.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.timer_outlined, size: 14, color: Colors.amber),
+                              const SizedBox(width: 4),
+                              Text(
+                                "Meta: ${_formatDate(study.estimatedCompletion!)}",
+                                style: const TextStyle(fontSize: 12, color: Colors.black87, fontWeight: FontWeight.w500),
+                              ),
+                            ],
+                          ),
+                        ),
+                      const SizedBox(height: 12),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -250,27 +271,16 @@ class _StudiesPageState extends State<StudiesPage> {
                           Text('${study.progress}%', style: TextStyle(color: catColor, fontWeight: FontWeight.bold)),
                         ],
                       ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Slider(
-                              value: study.progress.toDouble(),
-                              min: 0,
-                              max: 100,
-                              divisions: 20,
-                              activeColor: catColor,
-                              inactiveColor: catColor.withOpacity(0.2),
-                              label: '${study.progress}%',
-                              onChanged: (value) async {
-                                await _dbService.updateStudyProgress(study.id, value.toInt());
-                                setState(() {});
-                              },
-                            ),
-                          ),
-                          if (study.progress == 100)
-                            const Icon(Icons.emoji_events, color: Colors.amber),
-                        ],
+                      Slider(
+                        value: study.progress.toDouble(),
+                        min: 0,
+                        max: 100,
+                        divisions: 20,
+                        activeColor: catColor,
+                        onChanged: (value) async {
+                          await _dbService.updateStudyProgress(study.id, value.toInt());
+                          setState(() {});
+                        },
                       ),
                     ],
                   ),
@@ -283,8 +293,7 @@ class _StudiesPageState extends State<StudiesPage> {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showAddStudyDialog(),
         icon: const Icon(Icons.add),
-        label: const Text('Adicionar'),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        label: const Text('Novo Objetivo'),
       ),
     );
   }
